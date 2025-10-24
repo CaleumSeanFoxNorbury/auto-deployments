@@ -1,0 +1,40 @@
+# example of a auto-deployment file using GitHub actions using secretes
+# the processes is to setup github on the external server and pull down the changes when a merge happens on a branch 
+
+name: Deployments
+# depoyment on branches
+on:
+  push:
+    branches:
+      - staging # or prod
+# depoyment jobs (e.g. staging, production auto depoyments)
+jobs:
+  deploy:
+    name: staging deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      # setup ssh connection
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+      # test ssh connection
+      - name: Test SSH connection
+        run: ssh -T ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }} || true
+      # deployment
+      - name: Deployment Project
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SSH_HOST }} << 'EOF'
+            cd /home/usr/app/ # path to project on server
+
+            echo "Marking directory as safe for Git..."
+            git config --global --add safe.directory /home/usr/app/ # path to project on server
+
+            echo "Pulling latest changes from ??? branch..."
+            git fetch origin staging         # branch to match on server
+            git reset --hard origin/staging  # branch to match on GitHub
+
+            echo "Deployment complete!"
+          EOF
